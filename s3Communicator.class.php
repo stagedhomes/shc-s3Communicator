@@ -141,7 +141,7 @@ class S3Communicator {
       //might make this dynamic later, but for now lets hard-code 80
       $quality = 80;
       $milliseconds = round(microtime(true) * 1000);
-      $outputImage = "/tmp/" . $milliseconds . ".jpg";
+      $outputImage = S3COM_TEMP_DIR . $milliseconds . ".jpg";
       $w = 300;
       $h = 400;
 
