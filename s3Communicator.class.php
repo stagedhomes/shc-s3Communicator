@@ -113,6 +113,39 @@ class S3Communicator {
     }
 
     //--------------------------------------------------------------------
+    // DELETE
+    //--------------------------------------------------------------------
+    function delete_image($myFileName) {
+      //first, lets check if the file exists. if it doesn't, we don't need to delete aything.
+      $fileAlreadyExists = $this->check_if_exists($myFileName);
+
+      if ($fileAlreadyExists) {
+        try {
+          $deleted = $this->s3->deleteObject(
+            [
+              'Bucket' => $this->s3Bucket,
+              'Key' => $myFileName
+            ]
+          );
+        } catch (Exception $e) {
+          echo 'Caught exception: ',  $e->getMessage(), "\n";
+        }
+
+        $invalidation = $this->invalidate_image($myFileName);
+
+        $finalResponse = array(
+          "invalidation" => $invalidation,
+          "deleted" => $deleted
+        );
+      } else {
+        $finalResponse = "File does not exist.";
+      }
+
+
+      return $finalResponse;
+    }
+
+    //--------------------------------------------------------------------
     // DERIVE CORRECT IMAGE EXTENSION
     //--------------------------------------------------------------------
     function derive_image_extension($formTmpName) {
@@ -141,7 +174,7 @@ class S3Communicator {
       //might make this dynamic later, but for now lets hard-code 80
       $quality = 80;
       $milliseconds = round(microtime(true) * 1000);
-      $outputImage = S3COM_TEMP_DIR . $milliseconds . ".jpg";
+      $outputImage = "/tmp/" . $milliseconds . ".jpg";
       $w = 300;
       $h = 400;
 
@@ -190,19 +223,22 @@ class S3Communicator {
       imagecopyresampled($dst, $src, 0, 0, 0, 0, $newwidth, $newheight, $width, $height);
 
       //lets grab the exif data of the original file, and fix the rotation of the destination image if neccessary
-      $exif = exif_read_data($formTmpName);
-      if(!empty($exif['Orientation'])) {
-        switch($exif['Orientation']) {
-        case 8:
-          $dst = imagerotate($dst,90,0);
-          break;
-        case 3:
-          $dst = imagerotate($dst,180,0);
-          break;
-        case 6:
-          $dst = imagerotate($dst,-90,0);
-          break;
-        } 
+      //but, this will only work for jpg and gifs.
+      if ($imageType == ".jpg" || $imageType == ".gif") {
+        $exif = exif_read_data($formTmpName);
+        if(!empty($exif['Orientation'])) {
+          switch($exif['Orientation']) {
+          case 8:
+            $dst = imagerotate($dst,90,0);
+            break;
+          case 3:
+            $dst = imagerotate($dst,180,0);
+            break;
+          case 6:
+            $dst = imagerotate($dst,-90,0);
+            break;
+          } 
+        }
       }
 
       //save it to the tmp file as a jpg
